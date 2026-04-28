@@ -1,57 +1,74 @@
-# 🦍 PingPongKong
+# PingPongKong
 
-PingPongKong is a high-performance, Rust-powered connectivity validator designed to detect network drift in real-time. It ensures your infrastructure's "Pings" always find their "Pongs."
+[English](README.MD) | [한글](README.ko.md)
 
-## 🏗 Ecosystem Structure
+PingPongKong is a high-performance, Rust-powered connectivity validator designed to detect network drift in real time. It helps ensure that every required "Ping" in your infrastructure finds its expected "Pong."
+
+## Ecosystem Structure
 
 | Component | Environment | Description |
 | :--- | :--- | :--- |
-| **pingpongkong-k8s-agent** | Kubernetes | Rust DaemonSet. Auto-discovers IPs via RBAC. |
-| **pingpongkong-k8s-collector** | Kubernetes | Aggregates Agent data. Updates K8s CRDs & Discord. |
-| **pingpongkong-node-agent** | Legacy/BareMetal | Static binary for VMs/Physical servers. |
-| **pingpongkong-node-collector** | Legacy/BareMetal | Centralized aggregator for non-K8s environments. |
-| **state-samples** | Both | GitOps repositories containing the connectivity matrices. |
+| **pingpongkong-k8s-agent** | Kubernetes | Rust DaemonSet that auto-discovers IPs through RBAC. |
+| **pingpongkong-k8s-collector** | Kubernetes | Aggregates agent data, updates Kubernetes CRDs, and sends Discord alerts. |
+| **pingpongkong-node-agent** | Legacy/Bare metal | Static binary for VMs and physical servers. |
+| **pingpongkong-node-collector** | Legacy/Bare metal | Centralized aggregator for non-Kubernetes environments. |
+| **state-samples** | Both | GitOps repositories containing connectivity matrices. |
 
-## 🚀 How it Works (Drift Detection)
+## How It Works
 
-1. **Declare State:** Define your required connectivity (e.g., Worker -> S3:9000) in your `state-sample` YAML.
-2. **Watch Drift:** Agents constantly perform TCP/UDP handshakes based on the YAML.
-3. **Aggregate Truth:** Collectors scrape Agents to provide a single "Cluster Health" or "Node Health" view.
-4. **Alert:** Immediate notifications via Discord or Kubernetes Events if a handshake fails.
+1. **Declare state:** Define required connectivity, such as `worker -> s3:9000`, in your `state-samples` YAML.
+2. **Watch drift:** Agents continuously perform TCP/UDP probes from the declared matrix.
+3. **Aggregate truth:** Collectors scrape agents and provide a single cluster or node health view.
+4. **Alert:** Failures trigger Discord notifications or Kubernetes events.
 
-## 🛠 Tech Stack
-- **Language:** Rust (Tokio, Kube-rs, Axum)
-- **Monitoring:** Prometheus Export + JSON Logging
-- **Delivery:** GitOps (ArgoCD / Manual)
+## Helm Commands
 
+To pull this chart from the repository:
 
+```bash
+helm pull oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
+```
 
-For a production-grade SRE tool, the **Collector** should absolutely be the one holding the GitLab token. 
+Other commands:
 
-Here is why giving the token to the DaemonSet Agents is a bad idea, and why the Collector is the perfect "Brain" for this operation.
+```bash
+helm show all oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
+helm template <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
+helm install <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
+helm upgrade <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version <new-version>
+```
 
-### 🦍 Why the Collector Must Hold the Token
+## Tech Stack
 
-1. **Security (Blast Radius):** If you give the token to the DaemonSet, the GitLab token exists on *every single worker node* in your cluster. If a hacker compromises just one random web pod and escapes to the node, they steal your Git token. If the Collector has it, the token only lives in one highly secured Deployment pod.
-2. **GitLab API Rate Limiting:** If you have 500 nodes, and the DaemonSet checks Git for drift every 60 seconds, you are hitting the GitLab API 500 times a minute. GitLab will block you. The Collector only needs to hit the API **once**, and then it distributes the configuration.
-3. **Separation of Concerns:** In the Rust ecosystem, we want the Agent to be as "dumb" and fast as possible. It shouldn't care about HTTP proxies, TLS handshakes with GitLab, or JSON parsing Git responses. Its only job is to Ping and Pong.
+- **Language:** Rust, Tokio, kube-rs, Axum
+- **Monitoring:** Prometheus exports and JSON logging
+- **Delivery:** GitOps with Argo CD or manual workflows
 
----
+## Collector Responsibilities
 
-### 🌊 The Ideal "Kong" Data Flow
+For a production-grade SRE tool, the collector should hold the GitLab token.
 
-Here is exactly how the architecture should flow:
+Giving the token to DaemonSet agents creates avoidable risk:
 
-#### **Phase 1: Sync (The Collector)**
-1. The **Collector** (Deployment) wakes up and uses the GitLab token to fetch the `matrix.yaml` and `discord.yaml`.
-2. The Collector parses the YAML and pushes it into a Kubernetes **ConfigMap** (e.g., `pingpongkong-current-matrix`).
+1. **Security blast radius:** A DaemonSet places the GitLab token on every worker node. If one node is compromised, the token can be stolen. Keeping it in the collector limits exposure to one secured deployment pod.
+2. **GitLab API rate limits:** With hundreds of nodes, agents polling GitLab directly can quickly hit API limits. The collector fetches the configuration once and distributes it internally.
+3. **Separation of concerns:** Agents should stay fast and focused. Their job is to run probes and report results, not handle GitLab API calls, HTTP proxies, TLS handshakes, or Git response parsing.
 
-#### **Phase 2: Execution (The Agents)**
-3. The **Agents** (DaemonSet) are watching that ConfigMap using native Kubernetes RBAC (no Git token required!).
-4. As soon as the ConfigMap updates, the Agents automatically reload their internal Tokio tasks and start performing the TCP/UDP probes.
-5. The Agents expose their results on a local Prometheus metrics port (`:8080/metrics`) or a local JSON endpoint.
+## Data Flow
 
-#### **Phase 3: Aggregation & Alerting (The Collector)**
-6. The Collector continuously scrapes the results from all the Agents.
-7. If the Collector sees a failure, it checks its `discord.yaml` logic.
-8. It applies the rate limit (e.g., max 5 per minute), formats a beautiful message, and fires the Discord Webhook.
+### Phase 1: Sync
+
+1. The collector deployment uses the GitLab token to fetch `matrix.yaml` and `discord.yaml`.
+2. The collector parses the YAML and writes the current matrix into a Kubernetes ConfigMap, such as `pingpongkong-current-matrix`.
+
+### Phase 2: Execution
+
+1. Agents watch the ConfigMap through Kubernetes RBAC.
+2. When the ConfigMap changes, agents reload their Tokio tasks and start TCP/UDP probes.
+3. Agents expose results through Prometheus metrics, such as `:8080/metrics`, or a local JSON endpoint.
+
+### Phase 3: Aggregation and Alerting
+
+1. The collector continuously scrapes results from all agents.
+2. When a failure appears, the collector checks the `discord.yaml` rules.
+3. The collector applies rate limits, formats the message, and sends the Discord webhook.
