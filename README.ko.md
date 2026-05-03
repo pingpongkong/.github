@@ -26,17 +26,21 @@ PingPongKong은 Rust 기반의 고성능 연결성 검증 도구입니다. 실�
 저장소에서 차트를 가져오려면:
 
 ```bash
-helm pull oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
+helm pull oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.17
 ```
 
 기타 명령어:
 
 ```bash
-helm show all oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
-helm template <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
-helm install <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
+helm show all oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.17
+helm template <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.17
+helm install <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.17
 helm upgrade <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version <new-version>
 ```
+
+`REPORT_NOTIFICATION_MODE`는 주기적 연결성 리포트 알림 방식을 제어하며 기본값은
+`ALWAYS`입니다. 집계 리포트 상태가 `Healthy`가 아닐 때만 알림을 보내려면
+`NON_HEALTHY`를 사용하세요.
 
 ## 기술 스택
 

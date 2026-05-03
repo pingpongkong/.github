@@ -26,17 +26,21 @@ PingPongKong is a high-performance, Rust-powered connectivity validator designed
 To pull this chart from the repository:
 
 ```bash
-helm pull oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
+helm pull oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.17
 ```
 
 Other commands:
 
 ```bash
-helm show all oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
-helm template <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
-helm install <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.1
+helm show all oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.17
+helm template <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.17
+helm install <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version 0.0.17
 helm upgrade <my-release> oci://registry-1.docker.io/kimc1992/pingpongkong --version <new-version>
 ```
+
+`REPORT_NOTIFICATION_MODE` controls periodic connectivity report notifications and defaults to
+`ALWAYS`. Use `NON_HEALTHY` to notify only when the aggregate report health is not
+`Healthy`.
 
 ## Tech Stack
 
